@@ -1,17 +1,23 @@
 # 📦 E-Commerce & Delivery Analytics
  
-> **Pet project** — end-to-end analysis of an online grocery store with courier delivery.  
-> All queries are written in **PostgreSQL** via **Redash**. Visualizations are built directly in Redash dashboards.
+> **Pet-проект** — end-to-end аналитика продуктового онлайн-магазина с курьерской доставкой.  
+> Все запросы написаны на **PostgreSQL** с использованием **Redash**. Визуализации собраны в дашбордах Redash.
  
 ---
  
-## 📌 About the Project
+## 📌 О проекте
  
-This project covers the full analytical cycle of an e-commerce + delivery platform: from user and courier growth to unit economics, marketing efficiency, and retention.
+В рамках проекта проведён комплексный анализ платформы e-commerce с доставкой, включая рост пользователей и курьеров, юнит-экономику, маркетинговую эффективность и удержание пользователей. Проведено вычисление метрик (`arpu`, `arppu`, `aov`, `conversion rate`, `cac`, `roi`, `retention` и другие) и их визуализация
  
-**Database schema includes:**
-`users` · `orders` · `couriers` · `courier_actions` · `user_actions` · `products` · `thermopoints` · `studs`
+**Источник данных:** Тренажер SQL karpov.courses
  
-**Period analyzed:** August 24 – September 8, 2022
- 
-**Tools:** PostgreSQL · Redash · Window functions · Aggregations · CTEs · JOINs
+**Инструменты, навыки:** PostgreSQL · Redash · Window functions · Aggregations · CTEs · JOINs
+
+---
+
+## 📂 Дашборды
+**Ссылки на дашборды:** [первая часть](https://redash.public.karpov.courses/public/dashboards/fMSL6Gr130go4EDCw1QVwJxLVi1kStSEfdKhGRG0?org_slug=default), [вторая часть](https://redash.public.karpov.courses/public/dashboards/wbQFlGJ88ncnJHY9xq1N3mk7KJnMg3hJG2YPEwGj?org_slug=default), [третья часть](https://redash.public.karpov.courses/public/dashboards/ODMMoGPDV39EhpUnEqo6CyDtkeho5hAbto67XJok?org_slug=default)
+
+---
+
+## 🐘 SQL-запросы
