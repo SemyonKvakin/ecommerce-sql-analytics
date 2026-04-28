@@ -30,11 +30,10 @@
 ## 1. 📈 Рост пользователей и курьеров
 ### Рост общего числа пользователей и курьеров + количество новых пользователей и курьеров по дням
 <p align="center">
-  <img src="screens/01_growth_users_couriers.png" width="600" alt="Рост общего числа пользователей и курьеров">
-  <img src="screens/02_dinamics_new_users_couriers.png" width="600" alt="Динамика новых пользователей и курьеров">
+  <img src="screens/01_growth_users_couriers.png" width="500" alt="Рост общего числа пользователей и курьеров">
+  <img src="screens/02_dinamics_new_users_couriers.png" width="500" alt="Динамика новых пользователей и курьеров">
 </p>
-![Рост общего числа пользователей и курьеров](screens/01_growth_users_couriers.png)
-![Динамика новых пользователей и курьеров](screens/02_dinamics_new_users_couriers.png)
+
 
 ```sql
 with new_user as (SELECT date,
