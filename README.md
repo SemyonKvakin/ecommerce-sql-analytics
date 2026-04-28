@@ -1,11 +1,13 @@
 # 📦 E-Commerce & Delivery Analytics
  
 > **Pet-проект** — аналитика продуктового онлайн-магазина с курьерской доставкой.  
-> Все запросы написаны на **PostgreSQL** с использованием **Redash**. Визуализации собраны в дашбордах Redash.
- 
+> Все запросы написаны на **PostgreSQL** с использованием **Redash**. Визуализации собраны в дашбордах **Redash**
+
 ---
- 
-## 📌 О проекте
+<br>
+
+# 📌 О проекте
+
  
 В рамках проекта проведён комплексный анализ платформы e-commerce с доставкой, включая рост пользователей и курьеров, юнит-экономику, маркетинговую эффективность и удержание пользователей. Проведено вычисление метрик (`arpu`, `arppu`, `aov`, `conversion rate`, `cac`, `roi`, `retention` и другие) и их визуализация
  
@@ -14,19 +16,25 @@
 **Инструменты, навыки:** PostgreSQL · Redash · Window functions · Aggregations · CTEs · JOINs
 
 ---
+<br>
 
-## 📂 Дашборды
+# 📂 Дашборды
 **Ссылки на дашборды:** [первая часть](https://redash.public.karpov.courses/public/dashboards/fMSL6Gr130go4EDCw1QVwJxLVi1kStSEfdKhGRG0?org_slug=default), [вторая часть](https://redash.public.karpov.courses/public/dashboards/wbQFlGJ88ncnJHY9xq1N3mk7KJnMg3hJG2YPEwGj?org_slug=default), [третья часть](https://redash.public.karpov.courses/public/dashboards/ODMMoGPDV39EhpUnEqo6CyDtkeho5hAbto67XJok?org_slug=default)
 
 ---
+<br><br>
 
-## 🐘 SQL-запросы
+# 🐘 SQL-запросы
+
 
 ## 1. 📈 Рост пользователей и курьеров
-
-### Рост общего числа пользователей и курьеров
-
+### Рост общего числа пользователей и курьеров + количество новых пользователей и курьеров по дням
+<p align="center">
+  <img src="screens/01_growth_users_couriers.png" width="600" alt="Рост общего числа пользователей и курьеров">
+  <img src="screens/02_dinamics_new_users_couriers.png" width="600" alt="Динамика новых пользователей и курьеров">
+</p>
 ![Рост общего числа пользователей и курьеров](screens/01_growth_users_couriers.png)
+![Динамика новых пользователей и курьеров](screens/02_dinamics_new_users_couriers.png)
 
 ```sql
 with new_user as (SELECT date,
@@ -49,7 +57,33 @@ with new_user as (SELECT date,
 SELECT date,
        new_users,
        new_couriers,
-       (sum(new_users) OVER (ORDER BY date))::int as total_users,
-       (sum(new_couriers) OVER (ORDER BY date))::int as total_couriers
-FROM   rezult
+       total_users,
+       total_couriers,
+       round(new_users::decimal/lag(new_users) OVER(ORDER BY date) * 100 - 100,
+             2) as new_users_change,
+       round(new_couriers::decimal/lag(new_couriers) OVER(ORDER BY date) * 100 - 100,
+             2) as new_couriers_change,
+       round(total_users::decimal/lag(total_users) OVER(ORDER BY date) * 100 - 100,
+             2) as total_users_growth,
+       round(total_couriers::decimal/lag(total_couriers) OVER(ORDER BY date) * 100 - 100,
+             2) as total_couriers_growth
+FROM   (SELECT date,
+               new_users,
+               new_couriers,
+               (sum(new_users) OVER (ORDER BY date))::int as total_users,
+               (sum(new_couriers) OVER (ORDER BY date))::int as total_couriers
+        FROM   rezult) t1
 ```
+**Вопросы:**
+> 1) Что растёт быстрее: количество пользователей или количество курьеров?
+> 2) Насколько стабильны показатели числа новых пользователей и курьеров? Нет ли в данных таких дней, когда показатели сильно выбивались из общей динамики?
+> 3) Можно ли сказать, что показатель числа новых курьеров более стабилен, чем показатель числа новых пользователей?
+
+**Ответы:**
+> 1) Количество пользователей растет быстрее, чем количество курьеров. 134 пользователя и 95 курьеров в момент запуска платформы 24 августа 2022 и 21401 пользователь и 2826 курьеров в конце анализируемого периода 8 сентября 2022 года
+> 2) Показатели числа новых пользователей нестабильны, на протяжении всего времени видны колебания. В свою очередь показатели числа новых курьеров достаточно стабильны. Своего пика число новых пользователей достигает 4 сентября 2022 - 1952 пользователя. После чего достигает своего минимума (с 27 августа) - 1020 пользоватлей 6 сентября. Это может быть связано с маркетинговыми активностями компании или сбоями в работе приложения.
+> 3) Да, показатель числа новых курьеров более стабилен, чем показатель числа новых пользователей. Нет аномальных изменений или сильных колебаний. Число новых курьеров принимает значения от 95 (24 августа) до 242 (25 августа) 
+---
+
+### Динамика новых пользователей и курьеров по дням
+
