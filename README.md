@@ -29,9 +29,9 @@
 
 ## 1. 📈 Рост пользователей и курьеров
 ### Рост общего числа пользователей и курьеров + количество новых пользователей и курьеров по дням
-<p align="center">
-  <img src="screens/01_growth_users_couriers.png" width="400" alt="Рост общего числа пользователей и курьеров">
-  <img src="screens/02_dinamics_new_users_couriers.png" width="400" alt="Динамика новых пользователей и курьеров">
+<p>
+  <img src="screens/01_growth_users_couriers.png" width="500" alt="Рост общего числа пользователей и курьеров">
+  <img src="screens/02_dinamics_new_users_couriers.png" width="500" alt="Динамика новых пользователей и курьеров">
 </p>
 
 
