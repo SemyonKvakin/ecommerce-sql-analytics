@@ -46,17 +46,19 @@ with new_user as (SELECT date,
                                  min(date(time)) as date
                           FROM   user_actions
                           GROUP BY user_id) t1
-                  GROUP BY date), new_courier as (SELECT date,
-                                       count(courier_id) as new_couriers
-                                FROM   (SELECT courier_id,
-                                               min(date(time)) as date
-                                        FROM   courier_actions
-                                        GROUP BY 1) t2
-                                GROUP BY 1), rezult as (SELECT date,
-                               new_users,
-                               new_couriers
-                        FROM   new_user
-                            LEFT JOIN new_courier using(date))
+                  GROUP BY date), 
+new_courier as (SELECT date,
+                       count(courier_id) as new_couriers
+                FROM   (SELECT courier_id,
+                               min(date(time)) as date
+                        FROM   courier_actions
+                        GROUP BY 1) t2
+                GROUP BY 1), 
+rezult as (SELECT date,
+                  new_users,
+                  new_couriers
+           FROM   new_user
+           LEFT JOIN new_courier using(date))
 SELECT date,
        new_users,
        new_couriers,
@@ -96,4 +98,75 @@ FROM   (SELECT date,
 
  
 ## 2. 🚚 Заказы и операции
+### Динамика платящих пользователей и активных курьеров по дням и их доли в общем числе пользователей и курьеров
+
+<p>
+  <img src="screens/05_din.png" width="400" alt="Динамика платящих пользователей и активных курьеров">
+  <img src="screens/06_share.png" width="400" alt="Динамика долей платящих пользователей и активных курьеров">
+</p>
+
+```sql
+with new_user as (SELECT date,
+                         count(user_id) as new_users
+                  FROM   (SELECT user_id,
+                                 min(date(time)) as date
+                          FROM   user_actions
+                          GROUP BY user_id) t1
+                  GROUP BY date), 
+new_courier as (SELECT date,
+                       count(courier_id) as new_couriers
+                FROM   (SELECT courier_id,
+                               min(date(time)) as date
+                        FROM   courier_actions
+                        GROUP BY 1) t2
+                GROUP BY 1), 
+rezult as (SELECT date,
+                  new_users,
+                  new_couriers
+            FROM   new_user
+            LEFT JOIN new_courier using(date)), 
+new as (SELECT date,
+               new_users,
+               new_couriers,
+               (sum(new_users) OVER (ORDER BY date))::int as total_users,
+               (sum(new_couriers) OVER (ORDER BY date))::int as total_couriers
+        FROM   rezult), 
+sub as (SELECT date(time) as date,
+               count(distinct user_id) as paying_users
+        FROM   user_actions
+        WHERE  action = 'create_order'
+               and order_id not in (SELECT order_id
+                                    FROM   user_actions
+                                    WHERE  action = 'cancel_order')
+        GROUP BY 1), 
+sub1 as (SELECT date(time) as date,
+                count(distinct courier_id) as active_couriers
+         FROM   courier_actions
+         WHERE  order_id in (SELECT order_id
+                             FROM   courier_actions
+                             WHERE  action = 'deliver_order')
+         GROUP BY 1), 
+rezult1 as (SELECT date,
+                   paying_users,
+                   active_couriers
+            FROM   sub
+            LEFT JOIN sub1 using(date))
+SELECT date,
+       paying_users,
+       active_couriers,
+       round(paying_users::decimal/total_users*100, 2) as paying_users_share,
+       round(active_couriers::decimal/total_couriers*100, 2) as active_couriers_share
+FROM   rezult1
+    LEFT JOIN new using(date)
+ORDER BY date
+
+```
+**Вопросы:**
+> 1) Можно ли сказать, что вместе с общим числом пользователей и курьеров растёт число платящих пользователей и активных курьеров? 
+> 2) Как в то же время ведут себя показатели долей платящих пользователей и активных курьеров? Можно ли считать их текущую динамику в целом нормальной и закономерной?
+
+**Ответы:**
+> 1) Да, вместе с общим числом пользователей и курьеров растет число платящих пользователей и активных курьеров. Увеличивается общее число пользователей - число платящих пользователей, которые делаю заказы, становится также больше - привлекается больше курьеров, чтобы доставлять эти заказы
+> 2) Показатели долей платящих пользователей и активных курьеров снижаются. с ~ 98% до ~ 88% для активных курьеров и с ~ 95% до  ~ 18% для платящих пользователей.  
+
 
