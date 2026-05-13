@@ -170,4 +170,122 @@ ORDER BY date
 > 1) Да, вместе с общим числом пользователей и курьеров растет число платящих пользователей и активных курьеров. Увеличивается общее число пользователей - число платящих пользователей, которые делают заказы, становится также больше - привлекается больше курьеров, чтобы доставлять эти заказы
 > 2) Показатели долей платящих пользователей и активных курьеров снижаются. с ~ 98% до ~ 88% для активных курьеров и с ~ 95% до  ~ 18% для платящих пользователей. Такую динамику можно считать в целом нормальной и закономерной: сервис не предусматривает того, чтобы пользователи делали в нем заказы ежедневно. В первый день 98% пользователей сделали заказ и со временем это значение падает из-за роста общего числа пользователей (знаменатель увеличивается, а новые пользователи не делают заказы ежедневно). Доля активных курьеров высокая (~ 88%-98%). Снижение на 10% также обусловлено ростом общего числа курьеров
 
+--- 
+
+### Доля пользователей с одним и несколькими заказами
+
+<img src="screens/07_single_several.png" alt="Доля пользователей с одним и несколькими заказами" width="80%">
+
+```sql
+
+with sub as (SELECT date,
+                    count(num) filter (WHERE num = 1) as single_order_users_share,
+                    count(num) filter (WHERE num != 1) as several_orders_users_share,
+                    count(user_id) as users
+             FROM   (SELECT date(time) as date,
+                            user_id,
+                            count(distinct order_id) as num
+                     FROM   user_actions
+                     WHERE  order_id not in (SELECT order_id
+                                             FROM   user_actions
+                                             WHERE  action = 'cancel_order')
+                     GROUP BY 1, 2
+                     ORDER BY 1) t1
+             GROUP BY 1)
+SELECT date,
+       round(single_order_users_share::decimal / users*100,
+             2) as single_order_users_share,
+       round(several_orders_users_share::decimal / users*100,
+             2) as several_orders_users_share
+FROM   sub
+
+```
+
+**Вопросы:**
+> 1) На каком уровне в среднем держится доля пользователей с несколькими заказами?
+> 2) Можно ли считать значение показателя в первый день аномально низким, если принять во внимание общее количество пользователей в этот день?
+
+**Ответы:**
+> 1) Доля пользователей с несколькими заказами держится в среднем на уровне 28,39%
+
+```sql
+SELECT avg(several_orders_users_share) 
+FROM (...)
+```
+
+> 2) Значение показателя в первый день (7,09%) нельзя считать аномально низким, так как в первый день работы сервиса пользователи делали в основном свои первые заказы и только некоторые пользователи сделали повторный заказ в первый день
+
+--- 
+
+### Общее число заказов, первые заказы и заказы новых пользователей + доли первых заказов и доли заказов новых пользователей в общем числе заказов
+
+<img src="screens/08_total_first_new_users_orders.png" alt="Общее число заказов, первые заказы и заказы новых пользователей" width="80%">
+
+<img src="screens/09_first_new_users_orders_in_total_orders.png" alt="Доли первых заказов и доли заказов новых пользователей в общем числе заказов" width="80%">
+
+
+```sql
+
+with sub as (SELECT user_id,
+                    min(date(time)) as date
+             FROM   user_actions
+             WHERE  order_id not in (SELECT order_id
+                                     FROM   user_actions
+                                     WHERE  action = 'cancel_order')
+             GROUP BY 1), 
+first_orders_per_user as (SELECT date,
+                                 count(distinct user_id) as first_orders
+                          FROM   sub
+                          GROUP BY 1), 
+sub1 as (SELECT user_id,
+                min(date(time)) as date
+         FROM   user_actions
+         WHERE  action = 'create_order'
+         GROUP BY 1), 
+first_day_orders as (SELECT sub1.user_id,
+                            sub1.date,
+                            t2.order_id
+                     FROM   sub1
+                     INNER JOIN (SELECT DISTINCT
+                                        order_id,
+                                        date(time) as date,
+                                        user_id
+                                 FROM   user_actions
+                                 WHERE  order_id not in (SELECT order_id
+                                                         FROM   user_actions
+                                                         WHERE  action = 'cancel_order')
+                                   AND  action = 'create_order') t2 using(user_id, date)), 
+rezult as (SELECT date,
+                  count(order_id) as new_users_orders
+           FROM   first_day_orders
+           GROUP BY 1), 
+all_orders as (SELECT t3.date,
+                      t3.orders,
+                      first_orders_per_user.first_orders
+               FROM   (SELECT date(time) as date,
+                              count(distinct order_id) as orders
+                       FROM   user_actions
+                       WHERE  order_id not in (SELECT order_id
+                                               FROM   user_actions
+                                               WHERE  action = 'cancel_order')
+                       GROUP BY 1) t3
+               LEFT JOIN first_orders_per_user using(date))
+SELECT date,
+       orders,
+       first_orders,
+       new_users_orders,
+       round(first_orders::decimal/orders*100, 2) as first_orders_share,
+       round(new_users_orders::decimal/orders*100, 2) as new_users_orders_share
+FROM   all_orders
+LEFT JOIN rezult using(date)
+
+```
+
+**Вопросы:**
+> 1) Какая в целом динамика у абсолютных показателей? Можно ли сказать, что вместе с ростом количества всех заказов растут показатели числа первых заказов и числа заказов новых пользователей?
+> 2) Что можно сказать о динамике относительных показателей? Можно ли считать её в целом закономерной? Как, на ваш взгляд, будут вести себя эти показатели в долгосрочной перспективе: они будут расти или снижаться?
+
+**Ответы:**
+> 1) Доля пользователей с несколькими заказами держится в среднем на уровне 28,39%
+
 
