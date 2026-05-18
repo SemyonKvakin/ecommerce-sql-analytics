@@ -289,8 +289,157 @@ LEFT JOIN rezult using(date)
 > 1) Динамика абсолютных показателей в целом положительная. Да, вместе с ростом количества всех заказов растут показатели числа первых заказов и числа заказов новых пользователей
 > 2) Динамика относительных показателей отрицательная. Ее можно считать в целом закономерной. Можно предположить, что с ростом общего числа заказов, растет число повторных заказов пользователей. Создадим запрос, где проследим долю повторных заказов пользователей в общем числе заказов и отразим это на графике
 
-<img src="screens/test1.png" alt="Общее число заказов, первые заказы и заказы новых пользователей" width="60%">
+<img src="screens/test1.png" alt="Доля повторных заказов пользователей в общем числе заказов" width="70%">
 
-> 2) На графике видим, что доля повторных заказов пользователей в общем числе заказов растет, поэтому динамика долей первых заказов и заказов новых пользователей отрицательная. В долгосрочной перспективе эти показатели будут снижаться, при условии, что старые пользователи будут делать все больше заказов
+>  На графике видим, что доля повторных заказов пользователей в общем числе заказов растет, поэтому динамика долей первых заказов и заказов новых пользователей отрицательная. В долгосрочной перспективе эти показатели будут снижаться, при условии, что старые пользователи будут делать все больше заказов
+
+
+--- 
+
+
+### Динамика числа пользователей и заказов на одного курьера
+
+
+<img src="screens/10_users_orders_per_courier.png" alt="Динамика числа пользователей и заказов на одного курьера" width="80%">
+
+```sql
+
+with daily_users as (SELECT date(time) as date,
+                            count(distinct user_id) as users_count
+                     FROM   user_actions
+                     WHERE  action = 'create_order'
+                        and order_id not in (SELECT order_id
+                                          FROM   user_actions
+                                          WHERE  action = 'cancel_order')
+                     GROUP BY 1), 
+daily_couriers as (SELECT date(time) as date,
+                          count(distinct courier_id) as couriers_count
+                   FROM   courier_actions
+                   WHERE  order_id not in (SELECT order_id
+                                           FROM   user_actions
+                                           WHERE  action = 'cancel_order')
+                   GROUP BY 1), 
+orders_per_day as (SELECT date(creation_time) as date,
+                          count(distinct order_id) as orders
+                   FROM   orders
+                   WHERE  order_id not in (SELECT order_id
+                                           FROM   user_actions
+                                           WHERE  action = 'cancel_order')
+                   GROUP BY 1)
+SELECT date,
+       round (users_count::decimal / couriers_count, 2) as users_per_courier,
+       round(orders::decimal / couriers_count, 2) as orders_per_courier
+FROM   daily_users
+    LEFT JOIN daily_couriers using(date)
+    LEFT JOIN orders_per_day using(date)
+ORDER BY date
+
+```
+
+**Вопросы:**
+> 1) Совпадает ли в целом динамика рассматриваемых показателей? Если да, то почему так происходит?
+> 2) Как изменяются рассматриваемые показатели? Они скорее растут или, наоборот, падают? 
+> 3) Как вы считаете, достаточно ли высокая нагрузка у курьеров нашего сервиса? Стоит ли сервису продолжать увеличивать количество курьеров или, наоборот, сейчас лучше приостановить наращивание их численности?
+
+**Ответы:**
+> 1) Да, в целом динамика рассматриваемых показателей совпадает, так как с ростом общего числа пользователей растет и количество их заказов
+> 2) Рассматриваемые показатели растут. В начале периода: 1,48 заказа и 1,37 пользователя на одного курьера и 2,2 заказа и 1,57 пользователя в конце периода. На протяжении всего периода показатели колеблются от 1,48 до 3,23 для заказов и от 1,37 до 2,46 для пользователей
+> 3) В конце рассматриваего периода показатель составлял 2,2 заказа на курьера. Я считаю, что такая нагрузка является оптимальной. Сейчас лучше приостановить наращивание численности курьеров, но численность следует увеличивать с ростом числа ежедневных заказов, чтобы показатели оставались на оптимальном уровне
+
+
+--- 
+
+
+### Среднее время доставки заказа
+
+<img src="screens/11_avg_delivery_time.png" alt="Среднее время доставки заказа" width="80%"> 
+
+```sql
+
+with accept_order as (SELECT date(time) as date,
+                             courier_id,
+                             order_id,
+                             time
+                      FROM   courier_actions
+                      WHERE  action = 'accept_order'
+                         and order_id not in (SELECT order_id
+                                           FROM   user_actions
+                                           WHERE  action = 'cancel_order')), 
+deliver_order as (SELECT date(time) as date,
+                         courier_id,
+                         order_id,
+                         time
+                  FROM   courier_actions
+                  WHERE  action = 'deliver_order'
+                  and order_id not in (SELECT order_id
+                                       FROM   user_actions
+                                       WHERE  action = 'cancel_order')), 
+orders as (SELECT date,
+                  courier_id,
+                  order_id,
+                  extract(epoch FROM   (deliver_order.time - accept_order.time)) / 60 as minutes
+           FROM   accept_order
+           INNER JOIN deliver_order using (date, courier_id, order_id))
+SELECT date,
+       round(avg(minutes)::int, 0)::int as minutes_to_deliver
+FROM   orders
+GROUP BY 1
+
+```
+
+**Вопросы:**
+> 1) Какое, скорее всего, время ожидания доставки заказа в нашем сервисе? Получается ли у курьеров придерживаться этого целевого показателя?
+
+
+**Ответы:**
+> 1) Время ожидания доставки в нашем сервисе составляет 20 минут. Да, у курьеров получается придерживаться целевого показателя
+
+
+--- 
+
+
+
+### Динамика показателя Cancel Rate и числа успешных/отменённых заказов (по часам в течении дня)
+
+
+<img src="screens/12_cancel_rate.png" alt="Cancel rate" width="80%"> 
+
+
+```sql
+
+with suc_orders as (SELECT extract(hour
+                    FROM   creation_time)::int as hour, count(distinct order_id) as successful_orders
+                    FROM   orders
+                    WHERE  order_id not in (SELECT order_id
+                                            FROM   user_actions
+                                            WHERE  action = 'cancel_order')
+                    GROUP BY 1), 
+can_orders as (SELECT extract(hour FROM   creation_time)::int as hour, 
+                      count(distinct order_id) as canceled_orders
+               FROM   orders
+               WHERE  order_id in (SELECT order_id
+                                   FROM   user_actions
+                                   WHERE  action = 'cancel_order')
+               GROUP BY 1)
+SELECT hour,
+       successful_orders,
+       canceled_orders,
+       round (canceled_orders::decimal / (successful_orders+canceled_orders), 3) as cancel_rate
+FROM   suc_orders
+    INNER JOIN can_orders using (hour)
+ORDER BY hour
+
+```
+
+**Вопросы:**
+> 1) В какие часы наблюдаются пиковые значения числа оформляемых заказов? В какие часы пользователи совершают меньше всего заказов?
+> 2) Прослеживается ли какая-то взаимосвязь между количеством оформляемых заказов и долей отменённых заказов? Растёт ли с увеличением числа заказов показатель cancel rate?
+
+
+
+**Ответы:**
+> 1) Пиковые значения числа оформляемых заказов наблюдаются с 18:00 до 21:00. Пользователи совершают меньше всего заказов с 3:00 до 4:00
+> 2) Взаимосвязь между количеством оформляемых заказов и долей отмененных заказов не прослеживается. С увеличением числа заказов показатель cancel rate не растет.
+
 
 
