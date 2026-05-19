@@ -443,3 +443,131 @@ ORDER BY hour
 
 
 
+--- 
+
+
+## 3. 💰 Выручка и юнит-экономика
+
+### Динамика ежедневной и общей выручки
+
+<img src="screens/13_daily_revenue.png" alt="Динамика ежедневной выручки" width="80%">
+
+<img src="screens/14_total_revenue.png" alt="Динамика общей выручки" width="80%">
+
+
+```sql
+
+with rez as (SELECT date,
+                    sum(price) as revenue
+             FROM   (SELECT date,
+                            order_id,
+                            product_id,
+                            price
+                     FROM   (SELECT date(creation_time) as date,
+                                    order_id,
+                                    unnest(product_ids) as product_id
+                             FROM   orders
+                             WHERE  order_id not in (SELECT order_id
+                                                     FROM   user_actions
+                                                     WHERE  action = 'cancel_order')) t1
+                         LEFT JOIN products using(product_id)) t2
+             GROUP BY 1
+             ORDER BY 1)
+SELECT date,
+       revenue,
+       sum(revenue) OVER(ORDER BY date) as total_revenue,
+       round(revenue::decimal*100 / lag(revenue) OVER () - 100, 2) as revenue_change
+FROM   rez
+
+```
+
+**Вопросы:**
+> 1) В какие дни наблюдалось заметное снижение ежедневной выручки?
+> 2) С чем это могло быть связано?
+
+
+
+**Ответы:**
+> 1) Заметное снижение выручки наблюдалось 5 и 6 сентября: 1,784,690 и 1,330,931 соответственно. Причем выручка 4 сентября составила 2,294,009 
+> 2) Чтобы установить причину падения выручки, сопоставим текущие графики с уже раннее составленными графиками
+
+<img src="screens/test2.png" alt="Динамика общего количества заказов по дням" width="80%">
+
+<img src="screens/test3.png" alt="Динамика платящих пользователей по дням" width="80%">
+
+> Посмотрим на динамику общего количества заказов по дням и динамику платящих пользователей по дням. Видим снижение общего числа заказов и плятящих пользователей 5 и 6 сентября, что и послужило причиной снижения выручки в эти дни
+
+--- 
+
+### ARPU, ARPPU, AOV по дням и по дням недели
+
+
+<img src="screens/15_arpu_arppu_aov.png" alt="ARPU, ARPPU, AOV по дням" width="80%">
+
+<img src="screens/16_arpu_arppu_aov_by_weekday.png" alt="ARPU, ARPPU, AOV по дням недели" width="80%">
+
+
+```sql
+--- ARPU, ARPPU, AOV by day
+
+with total_revenue as (SELECT date,
+                    sum(price)::decimal as revenue
+             FROM   (SELECT date,
+                            order_id,
+                            product_id,
+                            price
+                     FROM   (SELECT date(creation_time) as date,
+                                    order_id,
+                                    unnest(product_ids) as product_id
+                             FROM   orders
+                             WHERE  order_id not in (SELECT order_id
+                                                     FROM   user_actions
+                                                     WHERE  action = 'cancel_order')) t1
+                         LEFT JOIN products using(product_id)) t2
+             GROUP BY 1
+             ORDER BY 1), 
+total_users as (SELECT date(time) as date,
+             count(distinct user_id) as all_users
+      FROM   user_actions
+      GROUP BY 1), 
+paying_users as (SELECT date(time) as date,
+             count(distinct user_id) as pay_users
+      FROM   user_actions
+      WHERE  order_id not in (SELECT order_id
+                              FROM   user_actions
+                              WHERE  action = 'cancel_order')
+      GROUP BY 1), 
+orders_by_day as (SELECT date(time) as date,
+               count(distinct order_id) as daily_orders
+        FROM   user_actions
+        WHERE  order_id not in (SELECT order_id
+                                FROM   user_actions
+                                WHERE  action = 'cancel_order')
+        GROUP BY 1)
+SELECT date,
+       round (revenue / all_users, 2) as arpu,
+       round (revenue / pay_users, 2) as arppu,
+       round (revenue / daily_orders, 2) as aov
+FROM   total_revenue
+    LEFT JOIN total_users using(date)
+    LEFT JOIN paying_users using(date)
+    LEFT JOIN orders_by_day using(date)
+
+```
+
+```sql
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
